@@ -52,13 +52,6 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    /**
-     * Thay đổi chính cho phiên bản 0.12.x
-     * Jwts.parserBuilder() -> Jwts.parser()
-     * .setSigningKey() -> .verifyWith()
-     * .parseClaimsJws() -> .parseSignedClaims()
-     * .getBody() -> .getPayload()
-     */
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())

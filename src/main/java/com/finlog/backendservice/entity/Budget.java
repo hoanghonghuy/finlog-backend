@@ -6,13 +6,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "budgets")
 @Getter
 @Setter
-public class Transaction {
+public class Budget {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,25 +20,18 @@ public class Transaction {
     private BigDecimal amount;
 
     @Column(nullable = false)
-    private String type; // "INCOME" hoặc "EXPENSE"
+    private int month;
 
     @Column(nullable = false)
-    private LocalDate date;
-
-    private String description;
+    private int year;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonBackReference("user-transaction") // Đặt tên để phân biệt
+    @JsonBackReference("user-budget")
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    @JsonBackReference("category-transaction")
+    @JoinColumn(name = "category_id", nullable = false)
+    @JsonBackReference("category-budget")
     private Category category;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    @JsonBackReference("account-transaction")
-    private Account account;
 }

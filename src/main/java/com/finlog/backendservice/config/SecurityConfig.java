@@ -20,21 +20,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor // Vẫn giữ lại, không ảnh hưởng
+@RequiredArgsConstructor
 public class SecurityConfig {
-
-    // KHÔNG tiêm JwtAuthenticationFilter hay AuthenticationProvider vào đây nữa.
 
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
-        // Tiêm UserRepository trực tiếp vào phương thức này
         return username -> userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng"));
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
-        // Tiêm UserDetailsService trực tiếp vào phương thức này
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
@@ -57,7 +53,6 @@ public class SecurityConfig {
             AuthenticationProvider authenticationProvider,
             JwtAuthenticationFilter jwtAuthFilter
     ) throws Exception {
-        // Tiêm các bean cần thiết trực tiếp vào phương thức filterChain
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz

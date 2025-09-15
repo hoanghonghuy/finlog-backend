@@ -13,4 +13,6 @@ public class TransactionDto {
     private LocalDate date;
     private String description;
     private Long categoryId;
+
+    private Long accountId;
 }
