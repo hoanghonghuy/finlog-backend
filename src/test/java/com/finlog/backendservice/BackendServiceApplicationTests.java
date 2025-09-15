@@ -1,4 +1,4 @@
-package com.finlog.backend_service;
+package com.finlog.backendservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

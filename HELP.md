@@ -1,7 +1,7 @@
 # Read Me First
 The following was discovered as part of building this project:
 
-* The original package name 'com.finlog.backend-service' is invalid and this project uses 'com.finlog.backend_service' instead.
+* The original package name 'com.finlog.backend-service' is invalid and this project uses 'com.finlog.backendservice' instead.
 
 # Getting Started
 
