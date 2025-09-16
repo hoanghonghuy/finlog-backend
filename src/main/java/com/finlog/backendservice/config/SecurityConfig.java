@@ -54,7 +54,6 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // --- PHẦN THÊM MỚI ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
