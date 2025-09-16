@@ -57,12 +57,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Cho phép frontend ở port 5173 truy cập
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+
+        // Thêm URL của frontend trên Netlify vào danh sách được phép
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "https://finlog-fapp.netlify.app"));
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Cho phép các header này
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        // Cho phép gửi cookie (nếu cần)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -78,7 +78,7 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthFilter
     ) throws Exception {
         http
-                .cors(withDefaults()) //
+                .cors(withDefaults()) // Kích hoạt CORS bằng cấu hình ở trên
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/api/auth/**").permitAll()
