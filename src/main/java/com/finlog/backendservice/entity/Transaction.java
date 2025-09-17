@@ -21,7 +21,7 @@ public class Transaction {
     private BigDecimal amount;
 
     @Column(nullable = false)
-    private String type; // "INCOME" hoặc "EXPENSE"
+    private String type;
 
     @Column(nullable = false)
     private LocalDate date;
@@ -30,16 +30,19 @@ public class Transaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonBackReference("user-transaction") // Đặt tên để phân biệt
+    @JsonBackReference("user-transaction")
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    // --- THAY ĐỔI QUAN TRỌNG NHẤT Ở ĐÂY ---
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.MERGE)
     @JoinColumn(name = "category_id")
-    @JsonBackReference("category-transaction")
+    //@JsonBackReference("category-transaction")
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
     @JsonBackReference("account-transaction")
     private Account account;
+
+    // Xóa hàm public void setCategory(Category category) tự viết đi
 }

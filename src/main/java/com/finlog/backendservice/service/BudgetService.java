@@ -1,28 +1,37 @@
 package com.finlog.backendservice.service;
 
 import com.finlog.backendservice.dto.BudgetDto;
+import com.finlog.backendservice.dto.BudgetWithSpendingDto;
+import com.finlog.backendservice.dto.CategoryDto;
 import com.finlog.backendservice.entity.Budget;
 import com.finlog.backendservice.entity.Category;
 import com.finlog.backendservice.entity.User;
 import com.finlog.backendservice.exception.ResourceNotFoundException;
 import com.finlog.backendservice.repository.BudgetRepository;
 import com.finlog.backendservice.repository.CategoryRepository;
+import com.finlog.backendservice.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class BudgetService {
     private final BudgetRepository budgetRepository;
     private final CategoryRepository categoryRepository;
+    private final TransactionRepository transactionRepository;
 
-    public List<Budget> getUserBudgetsByMonth(Long userId, int year, int month) {
-        return budgetRepository.findByUserIdAndYearAndMonth(userId, year, month);
+    public List<BudgetWithSpendingDto> getUserBudgetsByMonth(Long userId, int year, int month) {
+        return budgetRepository.findByUserIdAndYearAndMonth(userId, year, month)
+                .stream()
+                .map(budget -> mapToDtoWithSpending(budget, userId, year, month))
+                .collect(Collectors.toList());
     }
 
-    public Budget createBudget(BudgetDto budgetDto, User user) {
+    public BudgetWithSpendingDto createBudget(BudgetDto budgetDto, User user) {
         Category category = categoryRepository.findById(budgetDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với id: " + budgetDto.getCategoryId()));
 
@@ -30,12 +39,8 @@ public class BudgetService {
             throw new IllegalStateException("Bạn không có quyền tạo ngân sách cho danh mục của người khác");
         }
 
-        // Kiểm tra xem đã tồn tại ngân sách cho danh mục này trong tháng/năm đó chưa
         budgetRepository.findByUserIdAndCategoryIdAndYearAndMonth(
-                user.getId(),
-                budgetDto.getCategoryId(),
-                budgetDto.getYear(),
-                budgetDto.getMonth()
+                user.getId(), budgetDto.getCategoryId(), budgetDto.getYear(), budgetDto.getMonth()
         ).ifPresent(b -> {
             throw new IllegalStateException("Ngân sách cho danh mục này đã tồn tại trong tháng/năm đã chọn");
         });
@@ -47,10 +52,11 @@ public class BudgetService {
         budget.setCategory(category);
         budget.setUser(user);
 
-        return budgetRepository.save(budget);
+        Budget savedBudget = budgetRepository.save(budget);
+        return mapToDtoWithSpending(savedBudget, user.getId(), savedBudget.getYear(), savedBudget.getMonth());
     }
 
-    public Budget updateBudget(Long budgetId, BudgetDto budgetDto, Long userId) {
+    public BudgetWithSpendingDto updateBudget(Long budgetId, BudgetDto budgetDto, Long userId) {
         Budget budget = budgetRepository.findById(budgetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ngân sách với id: " + budgetId));
 
@@ -58,11 +64,10 @@ public class BudgetService {
             throw new IllegalStateException("Bạn không có quyền sửa ngân sách này");
         }
 
-        // Logic: Khi cập nhật, chỉ cho phép cập nhật số tiền
-        // Việc thay đổi tháng/năm/danh mục nên được thực hiện bằng cách xóa và tạo mới
         budget.setAmount(budgetDto.getAmount());
 
-        return budgetRepository.save(budget);
+        Budget updatedBudget = budgetRepository.save(budget);
+        return mapToDtoWithSpending(updatedBudget, userId, updatedBudget.getYear(), updatedBudget.getMonth());
     }
 
     public void deleteBudget(Long budgetId, Long userId) {
@@ -74,5 +79,28 @@ public class BudgetService {
         }
 
         budgetRepository.delete(budget);
+    }
+
+    private BudgetWithSpendingDto mapToDtoWithSpending(Budget budget, Long userId, int year, int month) {
+        BigDecimal actualSpending = transactionRepository.findTotalExpenseByCategoryIdAndMonth(
+                userId,
+                budget.getCategory().getId(),
+                year,
+                month
+        );
+
+        BudgetWithSpendingDto dto = new BudgetWithSpendingDto();
+        dto.setId(budget.getId());
+        dto.setAmount(budget.getAmount());
+        dto.setActualSpending(actualSpending);
+        dto.setMonth(budget.getMonth());
+        dto.setYear(budget.getYear());
+
+        CategoryDto categoryDto = new CategoryDto();
+        categoryDto.setId(budget.getCategory().getId());
+        categoryDto.setName(budget.getCategory().getName());
+        dto.setCategory(categoryDto);
+
+        return dto;
     }
 }

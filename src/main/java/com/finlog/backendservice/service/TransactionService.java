@@ -11,6 +11,8 @@ import com.finlog.backendservice.repository.CategoryRepository;
 import com.finlog.backendservice.repository.TransactionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,6 +26,8 @@ public class TransactionService {
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
 
+    private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
+
     public List<Transaction> getUserTransactions(Long userId) {
         return transactionRepository.findByUserId(userId);
     }
@@ -31,11 +35,14 @@ public class TransactionService {
     @Transactional
     public Transaction addTransaction(TransactionDto transactionDto, User user) {
         // Lấy thông tin tài khoản và danh mục
+        logger.info("Attempting to add transaction. Received categoryId: {}", transactionDto.getCategoryId());
+
         Account account = accountRepository.findById(transactionDto.getAccountId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản với id: " + transactionDto.getAccountId()));
         Category category = categoryRepository.findById(transactionDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với id: " + transactionDto.getCategoryId()));
 
+        logger.info("Successfully fetched Category with ID: {} and Name: {}", category.getId(), category.getName());
         // Kiểm tra quyền sở hữu
         if (!account.getUser().getId().equals(user.getId())) {
             throw new IllegalStateException("Bạn không thể tạo giao dịch trên tài khoản của người khác");

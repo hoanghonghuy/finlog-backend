@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+// Không cần List hay JsonManagedReference nữa
+
 @Entity
 @Table(name = "categories")
 @Getter
@@ -21,4 +23,6 @@ public class Category {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonBackReference
     private User user;
+
+    // Xóa trường @OneToMany transactions ở đây
 }
