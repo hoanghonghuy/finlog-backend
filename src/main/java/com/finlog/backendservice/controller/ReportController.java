@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.finlog.backendservice.dto.YearlySummaryDto;
 
 import java.util.List;
 
@@ -35,5 +36,12 @@ public class ReportController {
             @RequestParam int year,
             @RequestParam int month) {
         return ResponseEntity.ok(reportService.getExpenseByCategory(user, year, month));
+    }
+
+    @GetMapping("/yearly-summary")
+    public ResponseEntity<YearlySummaryDto> getYearlySummary(
+            @AuthenticationPrincipal User user,
+            @RequestParam int year) {
+        return ResponseEntity.ok(reportService.getYearlySummary(user, year));
     }
 }

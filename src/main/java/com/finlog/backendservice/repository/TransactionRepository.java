@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.finlog.backendservice.dto.YearlySummaryDto;
 import java.time.LocalDate;
 
 import java.math.BigDecimal;
@@ -37,4 +38,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("year") int year,
             @Param("month") int month
     );
+
+    @Query("SELECT new com.finlog.backendservice.dto.YearlySummaryDto$MonthlySummary(MONTH(t.date), " +
+            "SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END), " +
+            "SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END)) " +
+            "FROM Transaction t " +
+            "WHERE t.user.id = :userId AND YEAR(t.date) = :year " +
+            "GROUP BY MONTH(t.date) ") // Bỏ ORDER BY, sẽ sắp xếp ở Service
+    List<YearlySummaryDto.MonthlySummary> findMonthlySummariesForYear(@Param("userId") Long userId, @Param("year") int year);
 }
