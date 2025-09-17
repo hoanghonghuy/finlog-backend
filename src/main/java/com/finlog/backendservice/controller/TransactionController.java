@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.finlog.backendservice.dto.TransactionResponseDto;
 
 import java.util.List;
 
@@ -19,19 +20,20 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @GetMapping
-    public ResponseEntity<List<Transaction>> getUserTransactions(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<TransactionResponseDto>> getUserTransactions(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(transactionService.getUserTransactions(user.getId()));
     }
 
+
     @PostMapping
-    public ResponseEntity<Transaction> addTransaction(@RequestBody TransactionDto transactionDto, @AuthenticationPrincipal User user) {
-        Transaction newTransaction = transactionService.addTransaction(transactionDto, user);
+    public ResponseEntity<TransactionResponseDto> addTransaction(@RequestBody TransactionDto transactionDto, @AuthenticationPrincipal User user) {
+        TransactionResponseDto newTransaction = transactionService.addTransaction(transactionDto, user);
         return new ResponseEntity<>(newTransaction, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Transaction> updateTransaction(@PathVariable Long id, @RequestBody TransactionDto transactionDto, @AuthenticationPrincipal User user) {
-        Transaction updatedTransaction = transactionService.updateTransaction(id, transactionDto, user.getId());
+    public ResponseEntity<TransactionResponseDto> updateTransaction(@PathVariable Long id, @RequestBody TransactionDto transactionDto, @AuthenticationPrincipal User user) {
+        TransactionResponseDto updatedTransaction = transactionService.updateTransaction(id, transactionDto, user.getId());
         return ResponseEntity.ok(updatedTransaction);
     }
 
@@ -39,5 +41,13 @@ public class TransactionController {
     public ResponseEntity<Void> deleteTransaction(@PathVariable Long id, @AuthenticationPrincipal User user) {
         transactionService.deleteTransaction(id, user.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/by-month")
+    public ResponseEntity<List<TransactionResponseDto>> getUserTransactionsByMonth(
+            @RequestParam int year,
+            @RequestParam int month,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(transactionService.getUserTransactionsByMonth(user.getId(), year, month));
     }
 }

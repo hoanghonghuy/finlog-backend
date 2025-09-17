@@ -1,6 +1,7 @@
 package com.finlog.backendservice.service;
 
 import com.finlog.backendservice.dto.TransactionDto;
+import com.finlog.backendservice.dto.TransactionResponseDto; // Import DTO mới
 import com.finlog.backendservice.entity.Account;
 import com.finlog.backendservice.entity.Category;
 import com.finlog.backendservice.entity.Transaction;
@@ -16,8 +17,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors; // Import
 
 @Service
 @RequiredArgsConstructor
@@ -25,85 +29,88 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
-
     private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
 
-    public List<Transaction> getUserTransactions(Long userId) {
-        return transactionRepository.findByUserId(userId);
+    // Sửa kiểu trả về
+    public List<TransactionResponseDto> getUserTransactions(Long userId) {
+        return transactionRepository.findByUserId(userId)
+                .stream()
+                .map(this::mapToResponseDto) // Dùng mapper
+                .collect(Collectors.toList());
     }
 
+    // Sửa kiểu trả về
+    public List<TransactionResponseDto> getUserTransactionsByMonth(Long userId, int year, int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+        return transactionRepository.findByUserIdAndDateBetween(userId, startDate, endDate)
+                .stream()
+                .map(this::mapToResponseDto) // Dùng mapper
+                .collect(Collectors.toList());
+    }
+
+    // Sửa kiểu trả về
     @Transactional
-    public Transaction addTransaction(TransactionDto transactionDto, User user) {
-        // Lấy thông tin tài khoản và danh mục
-        logger.info("Attempting to add transaction. Received categoryId: {}", transactionDto.getCategoryId());
+    public TransactionResponseDto addTransaction(TransactionDto transactionDto, User user) {
+        Category category = null;
+        if (transactionDto.getCategoryId() != null) {
+            category = categoryRepository.findById(transactionDto.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với id: " + transactionDto.getCategoryId()));
+            if (!category.getUser().getId().equals(user.getId())) {
+                throw new IllegalStateException("Bạn không thể tạo giao dịch với danh mục của người khác");
+            }
+        }
 
         Account account = accountRepository.findById(transactionDto.getAccountId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản với id: " + transactionDto.getAccountId()));
-        Category category = categoryRepository.findById(transactionDto.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với id: " + transactionDto.getCategoryId()));
-
-        logger.info("Successfully fetched Category with ID: {} and Name: {}", category.getId(), category.getName());
-        // Kiểm tra quyền sở hữu
         if (!account.getUser().getId().equals(user.getId())) {
             throw new IllegalStateException("Bạn không thể tạo giao dịch trên tài khoản của người khác");
         }
-        if (!category.getUser().getId().equals(user.getId())) {
-            throw new IllegalStateException("Bạn không thể tạo giao dịch với danh mục của người khác");
-        }
 
-        // Cập nhật số dư tài khoản
         updateAccountBalance(account, transactionDto.getAmount(), transactionDto.getType());
         accountRepository.save(account);
 
-        // Tạo và lưu giao dịch mới
         Transaction transaction = new Transaction();
         transaction.setAmount(transactionDto.getAmount());
         transaction.setType(transactionDto.getType());
         transaction.setDate(transactionDto.getDate());
         transaction.setDescription(transactionDto.getDescription());
         transaction.setCategory(category);
-        transaction.setAccount(account); // Gán tài khoản cho giao dịch
+        transaction.setAccount(account);
         transaction.setUser(user);
 
-        return transactionRepository.save(transaction);
+        Transaction savedTransaction = transactionRepository.save(transaction);
+        return mapToResponseDto(savedTransaction); // Trả về DTO
     }
 
+    // Sửa kiểu trả về
     @Transactional
-    public Transaction updateTransaction(Long transactionId, TransactionDto transactionDto, Long userId) {
+    public TransactionResponseDto updateTransaction(Long transactionId, TransactionDto transactionDto, Long userId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch với id: " + transactionId));
 
-        // Kiểm tra quyền sở hữu giao dịch
         if (!transaction.getUser().getId().equals(userId)) {
             throw new IllegalStateException("Bạn không có quyền sửa giao dịch này");
         }
 
-        // --- Hoàn tác giao dịch cũ ---
-        Account oldAccount = transaction.getAccount();
-        revertAccountBalance(oldAccount, transaction.getAmount(), transaction.getType());
+        revertAccountBalance(transaction.getAccount(), transaction.getAmount(), transaction.getType());
 
-        // --- Áp dụng thông tin mới ---
         Account newAccount = accountRepository.findById(transactionDto.getAccountId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản mới với id: " + transactionDto.getAccountId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản mới không tồn tại"));
         Category newCategory = categoryRepository.findById(transactionDto.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục mới với id: " + transactionDto.getCategoryId()));
-
-        // Kiểm tra quyền sở hữu tài khoản và danh mục mới
+                .orElseThrow(() -> new ResourceNotFoundException("Danh mục mới không tồn tại"));
         if (!newAccount.getUser().getId().equals(userId) || !newCategory.getUser().getId().equals(userId)) {
             throw new IllegalStateException("Không thể cập nhật giao dịch với tài khoản hoặc danh mục của người khác");
         }
 
-        // Cập nhật số dư cho tài khoản mới
         updateAccountBalance(newAccount, transactionDto.getAmount(), transactionDto.getType());
 
-        // Nếu tài khoản cũ và mới khác nhau, lưu cả hai
-        if (!Objects.equals(oldAccount.getId(), newAccount.getId())) {
-            accountRepository.save(oldAccount);
+        if (!Objects.equals(transaction.getAccount().getId(), newAccount.getId())) {
+            accountRepository.save(transaction.getAccount());
         }
         accountRepository.save(newAccount);
 
-
-        // Cập nhật thông tin giao dịch
         transaction.setAmount(transactionDto.getAmount());
         transaction.setType(transactionDto.getType());
         transaction.setDate(transactionDto.getDate());
@@ -111,7 +118,8 @@ public class TransactionService {
         transaction.setCategory(newCategory);
         transaction.setAccount(newAccount);
 
-        return transactionRepository.save(transaction);
+        Transaction updatedTransaction = transactionRepository.save(transaction);
+        return mapToResponseDto(updatedTransaction); // Trả về DTO
     }
 
     @Transactional
@@ -123,16 +131,33 @@ public class TransactionService {
             throw new IllegalStateException("Bạn không có quyền xóa giao dịch này");
         }
 
-        // Hoàn tác số dư trên tài khoản liên quan
-        Account account = transaction.getAccount();
-        revertAccountBalance(account, transaction.getAmount(), transaction.getType());
-        accountRepository.save(account);
+        revertAccountBalance(transaction.getAccount(), transaction.getAmount(), transaction.getType());
+        accountRepository.save(transaction.getAccount());
 
-        // Xóa giao dịch
         transactionRepository.delete(transaction);
     }
 
-    // Hàm tiện ích để cập nhật số dư
+    // Hàm mapper helper
+    private TransactionResponseDto mapToResponseDto(Transaction transaction) {
+        TransactionResponseDto dto = new TransactionResponseDto();
+        dto.setId(transaction.getId());
+        dto.setAmount(transaction.getAmount());
+        dto.setType(transaction.getType());
+        dto.setDate(transaction.getDate());
+        dto.setDescription(transaction.getDescription());
+
+        // Xử lý an toàn nếu category là null
+        if (transaction.getCategory() != null) {
+            dto.setCategoryId(transaction.getCategory().getId());
+            dto.setCategoryName(transaction.getCategory().getName());
+        }
+
+        dto.setAccountId(transaction.getAccount().getId());
+        dto.setAccountName(transaction.getAccount().getName());
+
+        return dto;
+    }
+
     private void updateAccountBalance(Account account, BigDecimal amount, String type) {
         if ("EXPENSE".equalsIgnoreCase(type)) {
             account.setBalance(account.getBalance().subtract(amount));
@@ -141,7 +166,6 @@ public class TransactionService {
         }
     }
 
-    // Hàm tiện ích để hoàn tác số dư
     private void revertAccountBalance(Account account, BigDecimal amount, String type) {
         if ("EXPENSE".equalsIgnoreCase(type)) {
             account.setBalance(account.getBalance().add(amount));
